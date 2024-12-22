@@ -4,9 +4,9 @@ body {
     align-items: center;
     height: 100vh;
     margin: 0;
-    background-color: #f0f0f0;
+    background-color: red;
 }
 
 canvas {
-    border: 5px solid black;
+    border: 5px solid blue;
 }
