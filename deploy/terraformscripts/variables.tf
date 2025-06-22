@@ -14,7 +14,7 @@ variable "instanceTagName"{
 }
 
 variable "sg_name"{
-    default = "WebserverSg1"
+    default = "WebserverSg22"
 }
 
 variable "allowedPort"{
