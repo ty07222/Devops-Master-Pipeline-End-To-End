@@ -1,70 +1,79 @@
 pipeline {
     agent any
     stages {
-
-        stage("Setup Ansible"){
-            steps{
-                echo "Testing was already done succesfully via Github Workflows"
-                sh "sudo apt update && sudo apt install -y ansible"
-                echo "Ansible Installed"
+        stage('Git') {
+            steps {
+                git url: 'https://github.com/ty07222/Devops-Master-Pipeline-End-To-End.git', branch: 'main'
+                echo 'Git repository cloned successfully'
+            }
         }
+        stage('Setup Ansible') {
+            steps {
+                sh 'ansible --version'
+                echo 'Ansible is ready'
+            }
         }
-        stage("Setup Terraform"){
-            steps{
+        stage('Setup Terraform') {
+            steps {
                 script {
                     if (!fileExists('terraform_1.6.0_linux_amd64.zip')) {
                         sh 'wget https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_amd64.zip'
-                        sh "unzip terraform_1.6.0_linux_amd64.zip"
-                        sh "mv terraform /usr/local/bin/"
+                        sh 'unzip terraform_1.6.0_linux_amd64.zip'
+                        sh 'mv terraform /usr/local/bin/'
                     } else {
                         echo 'Terraform zip file already exists. Skipping download.'
                     }
                 }
-            sh "terraform --version"
+                sh 'terraform --version'
+                echo 'Terraform is ready'
             }
         }
-        stage("Create Infrastructure for PROD"){
-            steps{
-            sh "terraform  -chdir=./deploy/terraformscripts init"
-            sh "terraform -chdir=./deploy/terraformscripts apply --auto-approve"
-            sh "sleep 30" //giving some time for infrastructure to be up and running..
-            sh "pwd"
-            sh "cp ./deploy/terraformscripts/inventory ./deploy/playbooks/inventory"
-            echo "Infrastructure is up and running.."
+        stage('Create Infrastructure for PROD') {
+            steps {
+                dir('deploy/terraformscripts') {
+                    withCredentials([usernamePassword(credentialsId: 'alicloud-access', usernameVariable: 'ACCESS_KEY', passwordVariable: 'SECRET_KEY')]) {
+                        sh 'terraform init'
+                        sh 'terraform apply -auto-approve -var "access_key=$ACCESS_KEY" -var "secret_key=$SECRET_KEY"'
+                    }
+                }
+                sh 'sleep 30' // 等待基础设施就绪
+                sh 'cp ./deploy/terraformscripts/inventory ./deploy/playbooks/inventory'
+                echo 'Infrastructure is up and running'
             }
         }
-        stage("Configure k8s cluster on the created infrastructure") {
+        stage('Configure k8s cluster on the created infrastructure') {
             environment {
-                ANSIBLE_DIR = './deploy/playbooks' // Adjust this to the directory containing your ansible.cfg
+                ANSIBLE_DIR = './deploy/playbooks'
             }
             steps {
                 dir("${ANSIBLE_DIR}") {
-                    sh "chmod 400 mykey"
-                    sh "ansible-playbook rhel_common.yaml"
-                    sh "ansible-playbook rhel_master.yaml"
-                    echo "K8s Multi cluster configured successfully!"
+                    sh 'chmod 400 mykey'
+                    sh 'ansible-playbook rhel_common.yaml'
+                    sh 'ansible-playbook rhel_master.yaml'
+                    echo 'K8s multi-node cluster configured successfully'
                 }
             }
         }
-        stage("Configure Monitoring Tool"){
+        stage('Configure Monitoring Tool') {
             environment {
-                ANSIBLE_DIR = './deploy/playbooks' // Adjust this to the directory containing your ansible.cfg
+                ANSIBLE_DIR = './deploy/playbooks'
             }
-            steps{
+            steps {
                 dir("${ANSIBLE_DIR}") {
-                sh "ansible-playbook prometheus-grafana.yml"
-                echo "Monitoring tool configured succesfully!"
+                    sh 'ansible-playbook prometheus-grafana.yml'
+                    echo 'Monitoring tool configured successfully'
                 }
             }
         }
-        stage("Deploy the Webserver"){
+        stage('Deploy the Webserver') {
             environment {
-                ANSIBLE_DIR = './deploy/playbooks' // Adjust this to the directory containing your ansible.cfg
+                ANSIBLE_DIR = './deploy/playbooks'
             }
-            steps{
+            steps {
                 dir("${ANSIBLE_DIR}") {
-                sh "ansible-playbook deployDeployment.yml"
-            }
+                    sh 'ansible-playbook deployDeployment.yml'
+                    echo 'Webserver deployed successfully'
+                }
             }
         }
     }
