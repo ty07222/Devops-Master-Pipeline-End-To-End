@@ -5,7 +5,7 @@ pipeline {
         stage("Setup Ansible"){
             steps{
                 echo "Testing was already done succesfully via Github Workflows"
-                sh "apt update && apt install -y ansible"
+                sh "sudo apt update && sudo apt install -y ansible"
                 echo "Ansible Installed"
         }
         }
